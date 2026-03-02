@@ -1,8 +1,21 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
 body {
     margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+body {
     font-family: 'Segoe UI', sans-serif;
     background: #f1f3f4;
-    transition: 0.3s;
+    transition: background 0.3s, color 0.3s;
 }
 
 .dark-mode {
@@ -89,19 +102,25 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     background: transparent;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
 }
 
 /* ─── Topbar — 3-column grid: [◀ prev] [title] [right controls] ─── */
 .topbar {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     margin-bottom: 15px;
     gap: 10px;
     flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .topbar-left-outer {
@@ -109,6 +128,7 @@ body {
     align-items: center;
     gap: 6px;
     justify-content: flex-start;
+    flex-shrink: 0;
 }
 
 .topbar-title {
@@ -116,6 +136,8 @@ body {
     font-size: 1.3rem;
     font-weight: 700;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     margin: 0;
     letter-spacing: -0.01em;
     min-width: 0;
@@ -127,6 +149,8 @@ body {
     gap: 6px;
     justify-content: flex-end;
     flex-wrap: nowrap;
+    flex-shrink: 0;
+    min-width: 0;
 }
 
 .nav-arrow-btn {
@@ -164,6 +188,9 @@ body {
     grid-template-columns: repeat(7, 1fr);
     gap: 10px;
     flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .calendar-day {
@@ -176,6 +203,9 @@ body {
     cursor: pointer;
     transition: 0.2s;
     border: 1px solid rgba(255, 255, 255, 0.5);
+    min-width: 0;
+    overflow: hidden;
+    word-break: break-word;
 }
 
 .calendar-day:hover {
@@ -1467,7 +1497,7 @@ body {
     /* Sidebar drawer is narrower on small phones */
     .sidebar {
         width: 260px;
-        max-width: 80vw;
+        max-width: 82vw;
         padding: 16px 14px;
         gap: 8px;
     }
@@ -1488,40 +1518,45 @@ body {
         padding: 8px 10px;
     }
 
-    /* ── Topbar mobile:
-       Row 1: [◀]  [March 2026]  [☰ Today ▶ Month Week 🌙]  ← 3-col grid
-       On very small screens, collapses to:
-       Row 1: [March 2026]   — centered full width
-       Row 2: [◀]  ──  [☰ Today ▶ Month Week 🌙]
-    ── */
+    /* ── Topbar mobile: 3-column grid ── */
     .topbar {
         display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 6px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 4px;
         margin-bottom: 10px;
         align-items: center;
+        width: 100%;
     }
 
     .topbar-title {
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 700;
         text-align: center;
         margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
     }
 
     .topbar-left-outer {
         justify-content: flex-start;
+        flex-shrink: 0;
+        gap: 4px;
     }
 
     .topbar-right-outer {
         justify-content: flex-end;
-        gap: 5px;
+        gap: 4px;
         flex-wrap: nowrap;
+        flex-shrink: 0;
+        align-items: center;
     }
 
     /* ── Calendar grid ── */
     .calendar-grid {
         gap: 3px;
+        width: 100%;
     }
 
     .calendar-weekday {
@@ -1529,17 +1564,20 @@ body {
         padding: 4px 1px;
         font-weight: 700;
         text-align: center;
+        overflow: hidden;
     }
 
     .calendar-day {
-        min-height: 50px;
+        min-height: 52px;
         padding: 2px 3px;
         border-radius: 8px;
+        overflow: hidden;
     }
 
     .day-number {
         font-size: 10px;
         font-weight: 600;
+        text-align: right;
     }
 
     .today .day-number {
@@ -1555,10 +1593,14 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: 0;
+        overflow: hidden;
+        max-width: 100%;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
 
     .ev-time {
-        font-size: 9px;
+        font-size: 8px;
     }
 
     /* ── Category bar: 2×2 grid on mobile ── */
@@ -1570,7 +1612,7 @@ body {
     .category-bar-labels {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px 6px;
+        gap: 6px 8px;
         padding: 10px 14px 6px;
         justify-items: start;
     }
@@ -1580,16 +1622,21 @@ body {
         font-size: 11.5px;
         gap: 5px;
         width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
     }
 
     .cat-bar-text {
         font-size: 11.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .cat-bar-count {
         font-size: 10.5px;
         padding: 1px 7px;
         min-width: 18px;
+        flex-shrink: 0;
     }
 
     /* Segments bar: 2 per row to match 2×2 label grid */
@@ -1597,7 +1644,7 @@ body {
         display: grid;
         grid-template-columns: 1fr 1fr;
         height: auto;
-        gap: 4px;
+        gap: 6px 8px;
         padding: 0 14px 10px;
     }
 
@@ -1611,10 +1658,18 @@ body {
         width: 30px;
         height: 30px;
         font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    #todayBtn {
+        padding: 4px 8px;
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .view-toggle-btn {
-        padding: 5px 9px;
+        padding: 5px 8px;
         font-size: 12px;
     }
 
@@ -1623,11 +1678,16 @@ body {
         display: none;
     }
 
+    #toggleDark {
+        flex-shrink: 0;
+    }
+
     /* ── Week view ── */
     .week-view-container {
         max-height: calc(100svh - 180px);
         min-height: 340px;
         border-radius: 8px;
+        overflow: hidden;
     }
 
     .week-tz-corner,
@@ -1663,6 +1723,8 @@ body {
         font-size: 9px;
         padding: 2px 3px;
         border-radius: 3px;
+        left: 1px;
+        right: 2px;
     }
 
     .week-ev-title {
@@ -1697,8 +1759,50 @@ body {
     }
 }
 
-/* ── Extra small phones (max 380px) ── */
-@media (max-width: 380px) {
+/* ── Extra small phones (max 390px) ── */
+@media (max-width: 390px) {
+    .main-content {
+        padding: 6px 8px;
+    }
+
+    .topbar {
+        gap: 3px;
+        margin-bottom: 8px;
+    }
+
+    .topbar-title {
+        font-size: 0.9rem;
+    }
+
+    .topbar-right-outer {
+        gap: 3px;
+    }
+
+    .topbar-left-outer {
+        gap: 3px;
+    }
+
+    .nav-arrow-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+        flex-shrink: 0;
+    }
+
+    #todayBtn {
+        padding: 3px 6px;
+        font-size: 11px;
+    }
+
+    .view-toggle-btn {
+        padding: 4px 6px;
+        font-size: 11px;
+    }
+
+    .view-toggle-btn i {
+        display: none;
+    }
+
     .calendar-weekday {
         font-size: 9px;
         padding: 3px 1px;
@@ -1717,11 +1821,17 @@ body {
         font-size: 8px;
         padding: 1px 2px;
         display: none;
-        /* hide text on very small, show only dot or count */
+        /* hide text on very tiny, show colour bar only */
     }
 
     .category-bar-labels {
         grid-template-columns: 1fr 1fr;
+        gap: 4px 6px;
+        padding: 8px 10px 4px;
+    }
+
+    .category-bar-segments {
+        padding: 0 10px 8px;
         gap: 4px 6px;
     }
 
@@ -1729,33 +1839,24 @@ body {
         font-size: 10px;
     }
 
-    .topbar-title {
-        font-size: 0.95rem;
+    .cat-bar-text {
+        font-size: 10px;
     }
 
-    .view-toggle-btn {
-        padding: 4px 7px;
-        font-size: 11px;
+    .cat-bar-count {
+        font-size: 9.5px;
+        padding: 1px 5px;
+        min-width: 16px;
     }
 
-    .view-toggle-btn i {
-        display: none;
-    }
-
-    /* Compact right-outer on tiny screens */
-    .topbar-right-outer {
-        gap: 4px;
-    }
-
-    .nav-arrow-btn {
+    /* sidebar toggle icon size */
+    .sidebar-toggle-btn {
         width: 28px;
         height: 28px;
-        font-size: 11px;
-    }
-
-    #todayBtn {
-        padding: 3px 7px;
-        font-size: 11px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
