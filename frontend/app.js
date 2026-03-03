@@ -49,38 +49,88 @@ function isPastDate(dateKey) {
 
 const modal = new bootstrap.Modal(document.getElementById("eventModal"));
 
+/* ─── Sync Status Indicator ─── */
+function showSyncStatus(status) {
+    let el = document.getElementById('syncStatusBadge');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'syncStatusBadge';
+        el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:opacity 0.4s;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        document.body.appendChild(el);
+    }
+    if (status === 'saving') {
+        el.style.cssText += 'background:#1a73e8;color:#fff;opacity:1;';
+        el.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;border:2px solid #fff;border-top-color:transparent;animation:spin 0.7s linear infinite;display:inline-block"></span> Saving…';
+    } else if (status === 'saved') {
+        el.style.cssText += 'background:#43a047;color:#fff;opacity:1;';
+        el.innerHTML = '✅ Saved & synced';
+        setTimeout(() => { el.style.opacity = '0'; }, 2500);
+    } else if (status === 'error') {
+        el.style.cssText += 'background:#e53935;color:#fff;opacity:1;';
+        el.innerHTML = '⚠️ Sync failed – stored locally';
+        setTimeout(() => { el.style.opacity = '0'; }, 4000);
+    } else if (status === 'connected') {
+        el.style.cssText += 'background:#43a047;color:#fff;opacity:1;';
+        el.innerHTML = '🔗 Live sync active';
+        setTimeout(() => { el.style.opacity = '0'; }, 3000);
+    }
+}
+
 /* ─── Firestore Save ─── */
-// Saves the entire events object to Firestore (all devices pick it up via onSnapshot)
+// _isSaving prevents the onSnapshot callback (triggered by our own write)
+// from overwriting the local events object before the write promise resolves.
+let _isSaving = false;
+
 async function saveStorage() {
+    _isSaving = true;
+    showSyncStatus('saving');
+    // Always mirror to localStorage immediately so we survive a Firestore failure
+    localStorage.setItem('events', JSON.stringify(events));
     try {
         await setDoc(EVENTS_DOC, { data: JSON.stringify(events) });
+        showSyncStatus('saved');
     } catch (err) {
-        console.error("❌ Failed to save events to Firestore:", err);
-        // Fallback: keep a local copy so the UI stays usable offline
-        localStorage.setItem("events", JSON.stringify(events));
+        console.error('❌ Failed to save events to Firestore:', err);
+        showSyncStatus('error');
+    } finally {
+        _isSaving = false;
     }
 }
 
 /* ─── Real-Time Listener ─── */
-// onSnapshot fires instantly whenever any device saves new events.
-// This is the core fix: other devices get updated without polling or refreshing.
-onSnapshot(EVENTS_DOC, (snapshot) => {
-    if (snapshot.exists()) {
-        try {
-            events = JSON.parse(snapshot.data().data || "{}");
-        } catch (e) {
-            events = {};
+// Registered after the DOM is ready so renderCurrentView is guaranteed to exist.
+// onSnapshot fires instantly when any device writes new data.
+function startFirestoreListener() {
+    onSnapshot(EVENTS_DOC, (snapshot) => {
+        // Skip update if we just triggered this snapshot ourselves (race-condition guard)
+        if (_isSaving) return;
+        if (snapshot.exists()) {
+            try {
+                events = JSON.parse(snapshot.data().data || '{}');
+            } catch (e) {
+                events = {};
+            }
+        } else {
+            // No document yet – seed from localStorage so existing events aren't lost
+            const local = localStorage.getItem('events');
+            if (local) {
+                events = JSON.parse(local);
+                // Push local data up to Firestore so other devices get it too
+                setDoc(EVENTS_DOC, { data: local }).catch(console.error);
+            } else {
+                events = {};
+            }
         }
-    } else {
-        events = {};
-    }
-    renderCurrentView();
-}, (err) => {
-    console.error("❌ Firestore listener error:", err);
-    // Fallback to localStorage if Firestore is unavailable
-    events = JSON.parse(localStorage.getItem("events") || "{}");
-    renderCurrentView();
-});
+        renderCurrentView();
+        showSyncStatus('connected');
+    }, (err) => {
+        console.error('❌ Firestore listener error:', err);
+        showSyncStatus('error');
+        // Graceful fallback: use localStorage so the app still works offline
+        events = JSON.parse(localStorage.getItem('events') || '{}');
+        renderCurrentView();
+    });
+}
 
 /* ─── Live Clock ─── */
 function updateClock() {
@@ -927,10 +977,8 @@ document.getElementById("saveEventBtn").onclick = function () {
     const idx = document.getElementById("editIndex").value;
     if (idx === "") {
         events[dateVal].push(ev);
-        currentView = "week";
+        // Stay on month view so the user can SEE the newly added event chip on the calendar
         currentDate = new Date(dateVal + "T00:00:00");
-        document.getElementById("weekViewBtn").classList.add("active");
-        document.getElementById("monthViewBtn").classList.remove("active");
     } else {
         const oldDate = document.getElementById("selectedDate").value;
         if (oldDate !== dateVal) {
@@ -1293,7 +1341,11 @@ function renderWeeklyReport() {
 document.getElementById('weeklyReportBtn').onclick = renderWeeklyReport;
 
 /* ─── Init ─── */
+// Load from localStorage immediately so the calendar isn't blank while Firestore connects
+events = JSON.parse(localStorage.getItem('events') || '{}');
 renderCurrentView();
+// Then start the real-time Firestore listener (updates events & re-renders when data arrives)
+startFirestoreListener();
 
 /* ─── Mobile Sidebar Toggle ─── */
 (function setupSidebarToggle() {

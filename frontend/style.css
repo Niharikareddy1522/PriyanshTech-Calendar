@@ -52,6 +52,12 @@ body {
     }
 }
 
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .sidebar-backdrop.active {
     display: block;
 }
