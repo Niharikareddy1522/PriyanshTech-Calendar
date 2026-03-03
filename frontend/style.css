@@ -88,7 +88,7 @@ body {
 }
 
 .dark-mode .sidebar-logo {
-    content: url('public/priyansh1.jpg');
+    content: url('public/Priyansh1.jpg');
 }
 
 .clock {
@@ -1294,7 +1294,9 @@ body {
         overflow: hidden;
     }
 
-    .sidebar {
+    .sidebar,
+    .sidebar.sidebar-collapsed,
+    .sidebar.sidebar-expanded {
         width: 260px;
         min-width: 220px;
         flex-shrink: 0;
@@ -1303,6 +1305,9 @@ body {
         display: flex;
         flex-direction: column;
         gap: 0;
+        /* Always visible on desktop, override any transform from mobile JS */
+        position: relative !important;
+        transform: none !important;
     }
 
     .main-content {
@@ -1397,6 +1402,13 @@ body {
         padding: 12px 14px;
         overflow-y: auto;
         height: 100dvh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Category bar always at the bottom on tablet/mobile */
+    .category-bar {
+        margin-top: auto;
     }
 
     .sidebar-logo {
@@ -1516,6 +1528,8 @@ body {
 
     .main-content {
         padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
     }
 
     /* ── Topbar mobile: 3-column grid ── */
@@ -1603,9 +1617,9 @@ body {
         font-size: 8px;
     }
 
-    /* ── Category bar: 2×2 grid on mobile ── */
+    /* ── Category bar: 2×2 grid on mobile, always at the bottom ── */
     .category-bar {
-        margin-top: 10px;
+        margin-top: auto;
         border-radius: 10px;
     }
 

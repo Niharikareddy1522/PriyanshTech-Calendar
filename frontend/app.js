@@ -1063,7 +1063,7 @@ function renderCategoryBar() {
         const label = document.createElement('div');
         label.className = 'cat-bar-label cat-clickable';
         label.title = `Click to highlight ${info.label} events`;
-        label.innerHTML = `<span class="cat-bar-dot" style="background:${info.color}"></span><span class="cat-bar-text">${info.label}</span><span class="cat-bar-count">${count}</span>`;
+        label.innerHTML = `<span class="cat-bar-text">${info.label}</span><span class="cat-bar-count">${count}</span>`;
         if (count > 0) label.onclick = () => highlightCategory(c);
         labelsEl.appendChild(label);
     });
