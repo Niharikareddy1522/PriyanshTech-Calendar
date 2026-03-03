@@ -1,5 +1,24 @@
+/* ─── Firebase Firestore Real-Time Sync ─── */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ── REPLACE these values with your own Firebase project config ──
+// Go to https://console.firebase.google.com → Your project → Project Settings → Your apps
+const firebaseConfig = {
+    apiKey: "AIzaSyD_REPLACE_WITH_YOUR_API_KEY",
+    authDomain: "REPLACE_WITH_YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+    storageBucket: "REPLACE_WITH_YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+    appId: "REPLACE_WITH_YOUR_APP_ID"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const EVENTS_DOC = doc(db, "calendar", "shared-events");
+
 let currentDate = new Date();
-let events = JSON.parse(localStorage.getItem("events")) || {};
+let events = {}; // Populated from Firestore; kept in sync via onSnapshot
 let dragged = null;
 let currentView = "month"; // "month" or "week"
 let currentAttendees = []; // attendee emails for current modal session
@@ -29,10 +48,38 @@ function isPastDate(dateKey) {
 
 const modal = new bootstrap.Modal(document.getElementById("eventModal"));
 
-/* ─── Storage ─── */
-function saveStorage() {
-    localStorage.setItem("events", JSON.stringify(events));
+/* ─── Firestore Save ─── */
+// Saves the entire events object to Firestore (all devices pick it up via onSnapshot)
+async function saveStorage() {
+    try {
+        await setDoc(EVENTS_DOC, { data: JSON.stringify(events) });
+    } catch (err) {
+        console.error("❌ Failed to save events to Firestore:", err);
+        // Fallback: keep a local copy so the UI stays usable offline
+        localStorage.setItem("events", JSON.stringify(events));
+    }
 }
+
+/* ─── Real-Time Listener ─── */
+// onSnapshot fires instantly whenever any device saves new events.
+// This is the core fix: other devices get updated without polling or refreshing.
+onSnapshot(EVENTS_DOC, (snapshot) => {
+    if (snapshot.exists()) {
+        try {
+            events = JSON.parse(snapshot.data().data || "{}");
+        } catch (e) {
+            events = {};
+        }
+    } else {
+        events = {};
+    }
+    renderCurrentView();
+}, (err) => {
+    console.error("❌ Firestore listener error:", err);
+    // Fallback to localStorage if Firestore is unavailable
+    events = JSON.parse(localStorage.getItem("events") || "{}");
+    renderCurrentView();
+});
 
 /* ─── Live Clock ─── */
 function updateClock() {
