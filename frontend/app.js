@@ -171,14 +171,88 @@ function formatShortTime(timeStr) {
     return m === 0 ? `${hour12}${suffix}` : `${hour12}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
-/* ─── Snap time to nearest 30-min slot for the dropdown ─── */
+/* ─── Snap time to nearest 15-min slot ─── */
 function snapToSlot(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':').map(Number);
-    const snappedM = m < 15 ? '00' : (m < 45 ? '30' : '00');
-    const snappedH = m >= 45 ? (h + 1) % 24 : h;
-    return `${String(snappedH).padStart(2, '0')}:${snappedM}`;
+    const snappedM = m < 8 ? 0 : m < 23 ? 15 : m < 38 ? 30 : m < 53 ? 45 : 0;
+    const snappedH = m >= 53 ? (h + 1) % 24 : h;
+    return `${String(snappedH).padStart(2, '0')}:${String(snappedM).padStart(2, '0')}`;
 }
+
+/* ─── Time Picker Helpers (3-column Hour/Min/AM-PM <-> 24h string) ─── */
+function setStartTimePicker(timeStr24) {
+    // timeStr24 like "09:30" or "" for all-day
+    const h = document.getElementById('startHour');
+    const m = document.getElementById('startMinute');
+    const ap = document.getElementById('startAmPm');
+    if (!h || !m || !ap) return;
+    if (!timeStr24) { h.value = ''; m.value = '00'; ap.value = 'AM'; syncStartTimeHidden(); return; }
+    const [hh, mm] = timeStr24.split(':').map(Number);
+    // Find nearest minute option (00, 15, 30, 45)
+    const snappedM = mm < 8 ? 0 : mm < 23 ? 15 : mm < 38 ? 30 : mm < 53 ? 45 : 0;
+    ap.value = hh < 12 ? 'AM' : 'PM';
+    const hour12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+    h.value = String(hour12);
+    m.value = String(snappedM).padStart(2, '0');
+    syncStartTimeHidden();
+}
+
+function getStartTime24h() {
+    const h = parseInt(document.getElementById('startHour')?.value || '0', 10);
+    const m = parseInt(document.getElementById('startMinute')?.value || '0', 10);
+    const ap = document.getElementById('startAmPm')?.value || 'AM';
+    if (!document.getElementById('startHour')?.value) return ''; // All-day
+    let hour24 = h === 12 ? (ap === 'AM' ? 0 : 12) : (ap === 'PM' ? h + 12 : h);
+    return `${String(hour24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function syncStartTimeHidden() {
+    const hidden = document.getElementById('eventStartTime');
+    if (hidden) hidden.value = getStartTime24h();
+}
+
+function setReminderTimePicker(timeStr24) {
+    const h = document.getElementById('reminderHour');
+    const m = document.getElementById('reminderMinute');
+    const ap = document.getElementById('reminderAmPm');
+    if (!h || !m || !ap) return;
+    if (!timeStr24) { h.value = ''; m.value = '00'; ap.value = 'AM'; syncReminderTimeHidden(); return; }
+    const [hh, mm] = timeStr24.split(':').map(Number);
+    const snappedM = mm < 8 ? 0 : mm < 23 ? 15 : mm < 38 ? 30 : mm < 53 ? 45 : 0;
+    ap.value = hh < 12 ? 'AM' : 'PM';
+    const hour12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+    h.value = String(hour12);
+    m.value = String(snappedM).padStart(2, '0');
+    syncReminderTimeHidden();
+}
+
+function getReminderTime24h() {
+    const h = parseInt(document.getElementById('reminderHour')?.value || '0', 10);
+    const m = parseInt(document.getElementById('reminderMinute')?.value || '0', 10);
+    const ap = document.getElementById('reminderAmPm')?.value || 'AM';
+    if (!document.getElementById('reminderHour')?.value) return '';
+    let hour24 = h === 12 ? (ap === 'AM' ? 0 : 12) : (ap === 'PM' ? h + 12 : h);
+    return `${String(hour24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function syncReminderTimeHidden() {
+    const hidden = document.getElementById('reminderTime');
+    if (hidden) hidden.value = getReminderTime24h();
+}
+
+// Wire up live sync so hidden fields stay updated as user changes pickers
+document.addEventListener('DOMContentLoaded', () => {
+    ['startHour', 'startMinute', 'startAmPm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', syncStartTimeHidden);
+    });
+    ['reminderHour', 'reminderMinute', 'reminderAmPm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', syncReminderTimeHidden);
+    });
+});
+
 
 /* ─── Render Current View ─── */
 function renderCurrentView() {
@@ -595,7 +669,7 @@ function renderWeekView() {
             hourCell.onclick = () => {
                 openModal(dateKey, null);
                 // Set time AFTER openModal so it doesn't get cleared
-                document.getElementById("eventStartTime").value = snapToSlot(`${String(h).padStart(2, '0')}:00`);
+                setStartTimePicker(snapToSlot(`${String(h).padStart(2, '0')}:00`));
             };
             col.appendChild(hourCell);
         }
@@ -709,7 +783,7 @@ function setupReminderToggle() {
         } else {
             // Clear reminder fields when unchecked
             reminderDateEl.value = "";
-            document.getElementById("reminderTime").value = "";
+            setReminderTimePicker('');
         }
     };
 
@@ -883,10 +957,11 @@ async function sendEventEmails(ev, attendees) {
 /* ─── Read-Only Modal Helper ─── */
 function setModalReadOnly(isReadOnly) {
     const fieldsToDisable = [
-        "eventTitle", "eventDate", "eventStartTime",
+        "eventTitle", "eventDate",
+        "startHour", "startMinute", "startAmPm",
         "eventDuration", "eventNotes", "eventReminder",
-        "reminderDate", "reminderTime", "attendeeInput",
-        "sendEmailToggle"
+        "reminderDate", "reminderHour", "reminderMinute", "reminderAmPm",
+        "attendeeInput", "sendEmailToggle"
     ];
     fieldsToDisable.forEach(id => {
         const el = document.getElementById(id);
@@ -939,13 +1014,13 @@ function openModal(dateKey, index) {
         let ev = events[dateKey][index];
         document.getElementById("eventTitle").value = ev.title || "";
         document.getElementById("eventDate").value = ev.date || dateKey;
-        document.getElementById("eventStartTime").value = snapToSlot(ev.startTime) || "";
+        setStartTimePicker(ev.startTime || '');
         document.getElementById("eventDuration").value = ev.duration || "1 hr";
         document.getElementById("eventNotes").value = ev.notes || "";
         document.getElementById("eventColor").value = ev.color || "#43a047";
         document.getElementById("eventReminder").checked = ev.reminder || false;
         document.getElementById("reminderDate").value = ev.reminderDate || "";
-        document.getElementById("reminderTime").value = ev.reminderTime || "";
+        setReminderTimePicker(ev.reminderTime || '');
         // Attendees & Meeting Link
         currentAttendees = ev.attendees ? [...ev.attendees] : [];
         const mlEdit = document.getElementById("meetingLink");
@@ -958,13 +1033,13 @@ function openModal(dateKey, index) {
         document.getElementById("eventTitle").value = "";
         document.getElementById("eventDate").value = dateKey;
         const now = new Date();
-        document.getElementById("eventStartTime").value = snapToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        setStartTimePicker(snapToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`));
         document.getElementById("eventDuration").value = "1 hr";
         document.getElementById("eventNotes").value = "";
         document.getElementById("eventColor").value = "#43a047";
         document.getElementById("eventReminder").checked = false;
         document.getElementById("reminderDate").value = "";
-        document.getElementById("reminderTime").value = "";
+        setReminderTimePicker('');
         // Attendees & Meeting Link
         currentAttendees = [];
         const mlNew = document.getElementById("meetingLink");
@@ -997,13 +1072,13 @@ document.getElementById("saveEventBtn").onclick = function () {
     const ev = {
         title: title,
         date: dateVal,
-        startTime: document.getElementById("eventStartTime").value,
+        startTime: getStartTime24h(),
         duration: document.getElementById("eventDuration").value,
         notes: document.getElementById("eventNotes").value,
         color: document.getElementById("eventColor").value,
         reminder: document.getElementById("eventReminder").checked,
         reminderDate: document.getElementById("reminderDate").value,
-        reminderTime: document.getElementById("reminderTime").value,
+        reminderTime: getReminderTime24h(),
         attendees: [...currentAttendees],
         meetingLink: document.getElementById("meetingLink")?.value || "",
     };
@@ -1295,10 +1370,9 @@ function renderWeeklyReport() {
             weeklyReportModal.hide();
             setTimeout(() => {
                 openModal(dateKey, null);
-                // Default start time to current time (snapped to 30-min)
+                // Default start time to current time (snapped to 15-min)
                 const now = new Date();
-                document.getElementById('eventStartTime').value =
-                    snapToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+                setStartTimePicker(snapToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`));
             }, 300);
         };
 
