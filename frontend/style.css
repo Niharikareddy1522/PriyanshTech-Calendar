@@ -678,6 +678,112 @@ body {
     flex-shrink: 0;
 }
 
+/* ── Time Picker Group (Hour : Min AM/PM) ── */
+.time-picker-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.time-picker-group .time-picker-select {
+    flex: 1;
+    min-width: 0;
+    padding-left: 6px;
+    padding-right: 4px;
+}
+
+.time-picker-group .time-picker-ampm {
+    flex: 0 0 66px;
+    width: 66px;
+    min-width: 60px;
+    max-width: 72px;
+
+    font-weight: 600;
+
+    text-align: center;
+    text-align-last: center;
+    /* centers AM/PM */
+
+    padding: 4px 22px 4px 8px;
+    /* space for arrow on right */
+
+    box-sizing: border-box;
+}
+
+.time-picker-sep {
+    font-weight: 700;
+    font-size: 15px;
+    color: #5f6368;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0 1px;
+}
+
+.time-picker-ampm {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    background-position: right 6px center;
+    background-repeat: no-repeat;
+}
+
+/* Smaller variant used in Reminder row */
+.time-picker-sm .time-picker-select {
+    font-size: 13px;
+}
+
+.time-picker-group .time-picker-ampm {
+    flex: 0 0 66px;
+    width: 66px;
+    min-width: 60px;
+    max-width: 72px;
+
+    text-align: center;
+    text-align-last: center;
+    /* centers AM/PM */
+
+    font-weight: 600;
+
+    padding: 4px 26px 4px 8px;
+    /* extra right padding for dropdown arrow */
+
+    box-sizing: border-box;
+}
+
+.time-picker-ampm {
+    flex: 0 0 60px;
+    width: 60px;
+
+    text-align: center;
+    text-align-last: center;
+
+    font-weight: 600;
+
+    padding: 6px 26px 6px 10px;
+    /* important for arrow spacing */
+
+    line-height: 1.4;
+
+    box-sizing: border-box;
+}
+
+.time-picker-sm .time-picker-ampm {
+    flex: 0 0 70px;
+    /* increase width */
+    width: 70px;
+
+    text-align: center;
+    text-align-last: center;
+
+    padding: 4px 24px 4px 8px;
+    /* space for arrow */
+
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
 /* ── Reminder Box ── */
 .reminder-box {
     background: #f0f4ff;
@@ -1279,6 +1385,43 @@ body {
     background: rgba(26, 115, 232, 0.04);
 }
 
+/* ── Past week columns (entire day before today) ── */
+.week-day-col.wk-past-col {
+    background: rgba(240, 240, 240, 0.45);
+    pointer-events: none;
+    /* block all clicks on the column */
+}
+
+.dark-mode .week-day-col.wk-past-col {
+    background: rgba(30, 30, 30, 0.45);
+}
+
+/* Past hour slot within today's column */
+.week-hour-cell.wk-past-slot {
+    background: rgba(230, 230, 230, 0.38);
+    cursor: default;
+    pointer-events: none;
+}
+
+.dark-mode .week-hour-cell.wk-past-slot {
+    background: rgba(40, 40, 40, 0.38);
+}
+
+/* Past week-view event blocks: muted, still clickable */
+.week-event-block.wk-past-event {
+    opacity: 0.6;
+    filter: saturate(0.65);
+    pointer-events: auto !important;
+    /* override column block so events remain clickable */
+    cursor: pointer;
+}
+
+/* Event-blink class: always show pointer so user knows it's clickable */
+.event.event-blink,
+.week-event-block.event-blink {
+    cursor: pointer !important;
+}
+
 /* Event blocks */
 .week-events-layer {
     position: absolute;
@@ -1291,13 +1434,13 @@ body {
 
 .week-event-block {
     position: absolute;
-    left: 2px;
+    left: 4px;
     right: 4px;
     color: white;
-    border-radius: 5px;
-    padding: 3px 6px;
-    font-size: 11px;
-    overflow: hidden;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    overflow: visible;
     cursor: pointer;
     pointer-events: auto;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
@@ -1305,7 +1448,10 @@ body {
     transition: box-shadow 0.15s, transform 0.1s;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
+    justify-content: flex-start;
+    align-items: stretch;
+    min-height: auto;
 }
 
 .week-event-block:hover {
@@ -1317,16 +1463,18 @@ body {
 .week-ev-title {
     font-weight: 600;
     font-size: 11px;
-    line-height: 1.2;
-    white-space: nowrap;
+    line-height: 1.3;
+    width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
 }
 
 .week-ev-time {
-    font-size: 10px;
-    opacity: 0.85;
+    font-size: 11px;
+    opacity: 0.9;
 }
+
 
 /* Current time indicator */
 .week-now-line {
@@ -1854,10 +2002,15 @@ body {
         border-radius: 3px;
         left: 1px;
         right: 2px;
+        overflow: visible;
+        gap: 1px;
     }
 
     .week-ev-title {
         font-size: 9px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
     .week-ev-time {
@@ -2902,25 +3055,35 @@ body {
 .time-picker-group {
     display: flex;
     align-items: center;
+    /* all items centred on the same baseline */
     gap: 4px;
+    height: 38px;
+    /* fixed row height so every element lines up */
 }
 
 .time-picker-select {
     flex: 1 1 0;
     min-width: 0;
-    padding: 6px 4px !important;
+    height: 100%;
+    /* fill the group height exactly */
+    padding: 0 4px !important;
     text-align: center;
     font-size: 14px;
     font-weight: 600;
     border-radius: 8px !important;
     cursor: pointer;
+    line-height: 38px;
+    /* vertically centre text inside the select */
 }
 
 /* The AM/PM column is narrower */
 .time-picker-ampm {
     flex: 0 0 64px;
     min-width: 56px;
+    height: 100%;
     color: #1a73e8;
+    font-weight: 700;
+    line-height: 38px;
 }
 
 .time-picker-sep {
@@ -2928,23 +3091,31 @@ body {
     font-weight: 700;
     color: #5f6368;
     flex-shrink: 0;
-    line-height: 1;
+    line-height: 38px;
+    /* match row height so colon sits in the middle */
     margin: 0 1px;
+    align-self: center;
 }
 
 /* Smaller variant used in reminder section */
+.time-picker-sm {
+    height: 32px;
+}
+
 .time-picker-sm .time-picker-select {
     font-size: 12.5px;
-    padding: 4px 3px !important;
+    line-height: 32px;
 }
 
 .time-picker-sm .time-picker-ampm {
     flex: 0 0 54px;
     min-width: 48px;
+    line-height: 32px;
 }
 
 .time-picker-sm .time-picker-sep {
     font-size: 15px;
+    line-height: 32px;
 }
 
 /* ── Dark Mode ── */
@@ -2961,5 +3132,127 @@ body {
     .time-picker-ampm {
         flex: 0 0 52px;
         min-width: 46px;
+    }
+}
+
+/* ── Holiday Day Blink (triggered from category bar click) ── */
+@keyframes holidayBlink {
+    0% {
+        box-shadow: none;
+        background-color: rgba(255, 235, 235, 0.82);
+    }
+
+    20% {
+        box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.55), 0 0 18px rgba(198, 40, 40, 0.35);
+        background-color: rgba(255, 180, 180, 0.95);
+    }
+
+    40% {
+        box-shadow: none;
+        background-color: rgba(255, 235, 235, 0.82);
+    }
+
+    60% {
+        box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.45), 0 0 14px rgba(198, 40, 40, 0.28);
+        background-color: rgba(255, 200, 200, 0.90);
+    }
+
+    80% {
+        box-shadow: none;
+        background-color: rgba(255, 235, 235, 0.82);
+    }
+
+    100% {
+        box-shadow: none;
+        background-color: rgba(255, 235, 235, 0.82);
+    }
+}
+
+.calendar-day.weekend.holiday-blink {
+    animation: holidayBlink 0.7s ease-in-out 3;
+    z-index: 2;
+    position: relative;
+}
+
+.dark-mode .calendar-day.weekend.holiday-blink {
+    animation: none;
+    /* use outline pulse in dark mode */
+    outline: 3px solid #ef9a9a;
+    animation: holidayBlinkDark 0.7s ease-in-out 3;
+}
+
+@keyframes holidayBlinkDark {
+    0% {
+        box-shadow: none;
+    }
+
+    20% {
+        box-shadow: 0 0 0 3px rgba(239, 154, 154, 0.7), 0 0 18px rgba(239, 154, 154, 0.4);
+    }
+
+    40% {
+        box-shadow: none;
+    }
+
+    60% {
+        box-shadow: 0 0 0 2px rgba(239, 154, 154, 0.5);
+    }
+
+    80% {
+        box-shadow: none;
+    }
+
+}
+
+/* ══════════════════════════════════════
+   WEEKLY REPORT — WEEK NAVIGATION BTNS
+══════════════════════════════════════ */
+.wr-nav-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(255, 255, 255, 0.45);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.18s, border-color 0.18s, transform 0.12s;
+    white-space: nowrap;
+}
+
+.wr-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.7);
+    transform: scale(1.04);
+    color: #fff;
+}
+
+.wr-nav-btn:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.wr-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+#reportThisWeekBadge {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border-radius: 20px;
+    gap: 3px;
+}
+
+@media (max-width: 600px) {
+    .wr-nav-btn {
+        font-size: 11px;
+        padding: 3px 9px;
+    }
+
+    #reportThisWeekBadge {
+        font-size: 10.5px;
     }
 }

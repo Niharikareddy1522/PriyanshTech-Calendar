@@ -40,11 +40,20 @@ const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";   // From EmailJS dashboard > Em
 })();
 
 /* ─── Past Date Helper ─── */
+// Returns true only if the WHOLE DATE is strictly before today (day level)
 function isPastDate(dateKey) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const d = new Date(dateKey + "T00:00:00");
     return d < today;
+}
+
+// Returns true if the given date+time is more than 1 minute in the past
+function isPastDateTime(dateKey, time24) {
+    if (!time24) return isPastDate(dateKey); // all-day: only check date
+    const eventDt = new Date(dateKey + 'T' + time24 + ':00');
+    const nowMinus1Min = new Date(Date.now() - 60000); // 1 minute grace period
+    return eventDt < nowMinus1Min;
 }
 
 const modal = new bootstrap.Modal(document.getElementById("eventModal"));
@@ -261,9 +270,27 @@ function renderCurrentView() {
     if (currentView === "week") {
         calendar.className = "";
         renderWeekView();
+        // Wire prev/next for week view (advance by 7 days)
+        document.getElementById("prevBtn").onclick = () => {
+            currentDate.setDate(currentDate.getDate() - 7);
+            renderCurrentView();
+        };
+        document.getElementById("nextBtn").onclick = () => {
+            currentDate.setDate(currentDate.getDate() + 7);
+            renderCurrentView();
+        };
     } else {
         calendar.className = "calendar-grid";
         renderCalendar();
+        // Wire prev/next for month view (advance by 1 month)
+        document.getElementById("prevBtn").onclick = () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCurrentView();
+        };
+        document.getElementById("nextBtn").onclick = () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCurrentView();
+        };
     }
     renderCategoryBar();
 }
@@ -322,12 +349,16 @@ function renderCalendar() {
 
         if (events[dateKey]) {
             events[dateKey].forEach((ev, index) => {
+                // An event is "past" if the whole day is past, OR if it's today and
+                // the event's scheduled time (+ duration) has already elapsed.
+                const evPast = past || isPastDateTime(dateKey, ev.startTime || null);
+
                 let eDiv = document.createElement("div");
-                eDiv.className = "event" + (past ? " past-event" : "");
+                eDiv.className = "event" + (evPast ? " past-event" : "");
                 eDiv.style.background = ev.color;
                 eDiv.dataset.color = ev.color || '#43a047'; // used by category highlight
                 // Past events are not draggable
-                eDiv.draggable = !past;
+                eDiv.draggable = !evPast;
                 const timePrefix = ev.startTime ? formatShortTime(ev.startTime) + ' ' : '';
                 eDiv.innerHTML = `
                     <span><strong class="ev-time">${timePrefix}</strong>${ev.title}</span>
@@ -335,7 +366,7 @@ function renderCalendar() {
                 `;
                 // Always allow clicking past events — opens in read-only mode
                 eDiv.onclick = (e) => { e.stopPropagation(); openModal(dateKey, index); };
-                if (!past) eDiv.ondragstart = () => dragged = { from: dateKey, index };
+                if (!evPast) eDiv.ondragstart = () => dragged = { from: dateKey, index };
                 div.appendChild(eDiv);
             });
         }
@@ -359,13 +390,7 @@ function renderCalendar() {
     }
 
     renderMiniCalendar();
-    setupMonthNavigation();
-}
-
-/* ─── Setup Month Navigation ─── */
-function setupMonthNavigation() {
-    document.getElementById("prevBtn").onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCurrentView(); };
-    document.getElementById("nextBtn").onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCurrentView(); };
+    // Navigation is wired by renderCurrentView() — no need to re-wire here.
 }
 
 /* ─── Mini Calendar ─── */
@@ -652,25 +677,36 @@ function renderWeekView() {
     gridWrap.appendChild(gutter);
 
     // Day columns
+    const nowForWeek = new Date();
+    const nowHour = nowForWeek.getHours();
+    const nowMin = nowForWeek.getMinutes();
+    const nowTotalMin = nowHour * 60 + nowMin;
+
     for (let i = 0; i < 7; i++) {
         const d = weekDays[i];
         const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         const isToday = d.getTime() === today.getTime();
+        const isPastDay = d < today; // entire day is before today
 
         const col = document.createElement("div");
         const isWeekendDay = d.getDay() === 0 || d.getDay() === 6;
-        col.className = `week-day-col ${isToday ? 'wk-today-col' : ''} ${isWeekendDay ? 'wk-weekend-col' : ''}`;
+        col.className = `week-day-col ${isToday ? 'wk-today-col' : ''} ${isWeekendDay ? 'wk-weekend-col' : ''} ${isPastDay ? 'wk-past-col' : ''}`;
 
         // Background hour slots (for click targets + grid lines)
         for (let h = 0; h < 24; h++) {
             const hourCell = document.createElement("div");
-            hourCell.className = "week-hour-cell";
+            // Disable past hour slots: whole past days OR past hours in TODAY
+            const slotTotalMin = h * 60;
+            const isPastSlot = isPastDay || (isToday && slotTotalMin < nowTotalMin - 1);
+            hourCell.className = "week-hour-cell" + (isPastSlot ? " wk-past-slot" : "");
             hourCell.dataset.hour = h;
-            hourCell.onclick = () => {
-                openModal(dateKey, null);
-                // Set time AFTER openModal so it doesn't get cleared
-                setStartTimePicker(snapToSlot(`${String(h).padStart(2, '0')}:00`));
-            };
+            if (!isPastSlot) {
+                hourCell.onclick = () => {
+                    openModal(dateKey, null);
+                    // Set time AFTER openModal so it doesn't get cleared
+                    setStartTimePicker(snapToSlot(`${String(h).padStart(2, '0')}:00`));
+                };
+            }
             col.appendChild(hourCell);
         }
 
@@ -684,15 +720,21 @@ function renderWeekView() {
 
                 let [hours, minutes] = ev.startTime.split(':').map(Number);
                 let durationMins = getDurationMins(ev.duration);
-                const topPx = (hours * 60) + minutes;
+                const minuteHeight = 60 / 60; // 60px per hour / 60 minutes
+
+                const topPx = (hours * 60 + minutes) * minuteHeight;
+                const heightPx = durationMins * minuteHeight;
+
+                // Is this event in the past?
+                const evTotalMin = hours * 60 + minutes;
+                const evIsPast = isPastDay || (isToday && evTotalMin + durationMins <= nowTotalMin);
 
                 const eDiv = document.createElement("div");
-                eDiv.className = "week-event-block";
+                eDiv.className = "week-event-block" + (evIsPast ? " wk-past-event" : "");
                 eDiv.style.background = ev.color || "#43a047";
                 eDiv.dataset.color = ev.color || '#43a047';
                 eDiv.style.top = `${topPx}px`;
-                eDiv.style.height = `${Math.max(durationMins, 18)}px`;
-
+                eDiv.style.height = `${Math.max(heightPx, 18)}px`;
                 const timeStr = ev.startTime;
                 eDiv.innerHTML = `<span class="week-ev-title">${ev.title}</span><span class="week-ev-time">${timeStr}</span>`;
                 eDiv.onclick = (e) => { e.stopPropagation(); openModal(dateKey, index); };
@@ -727,16 +769,7 @@ function renderWeekView() {
     // Scroll to ~8 AM
     setTimeout(() => { body.scrollTop = 8 * 60; }, 50);
 
-    // Navigation: prev/next week
-    document.getElementById("prevBtn").onclick = () => {
-        currentDate.setDate(currentDate.getDate() - 7);
-        renderCurrentView();
-    };
-    document.getElementById("nextBtn").onclick = () => {
-        currentDate.setDate(currentDate.getDate() + 7);
-        renderCurrentView();
-    };
-
+    // Navigation is wired by renderCurrentView() after renderWeekView() returns.
     renderMiniCalendar();
 }
 
@@ -761,12 +794,22 @@ function setupReminderToggle() {
     const eventDateEl = document.getElementById("eventDate");
     const reminderDateEl = document.getElementById("reminderDate");
 
-    // Constrain reminder date: must be on or before the event date
-    function updateReminderMax() {
+    // Helper: today's date as YYYY-MM-DD string
+    function todayKey() {
+        const t = new Date();
+        return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    }
+
+    // Constrain reminder date: min = today, max = event date (no future-of-event selection)
+    function updateReminderConstraints() {
         const evDate = eventDateEl.value;
+        const today = todayKey();
+        // min: today (can't set reminder in the past)
+        reminderDateEl.setAttribute("min", today);
         if (evDate) {
+            // max: event date (reminder must be on/before the event)
             reminderDateEl.setAttribute("max", evDate);
-            // If current reminder date is after event date, clear it
+            // Clear if the current value is outside the new bounds
             if (reminderDateEl.value && reminderDateEl.value > evDate) {
                 reminderDateEl.value = "";
             }
@@ -779,7 +822,7 @@ function setupReminderToggle() {
     chk.onchange = () => {
         fields.style.cssText = chk.checked ? "display:flex!important;" : "display:none!important;";
         if (chk.checked) {
-            updateReminderMax();
+            updateReminderConstraints();
         } else {
             // Clear reminder fields when unchecked
             reminderDateEl.value = "";
@@ -787,11 +830,11 @@ function setupReminderToggle() {
         }
     };
 
-    // Update reminder max whenever event date changes
-    eventDateEl.onchange = updateReminderMax;
+    // Update constraints whenever event date changes
+    eventDateEl.onchange = updateReminderConstraints;
 
-    // Apply constraint now if reminder is already enabled
-    if (chk.checked) updateReminderMax();
+    // Apply constraints now if reminder is already enabled
+    if (chk.checked) updateReminderConstraints();
 }
 
 /* ─── Attendee Management ─── */
@@ -1005,13 +1048,17 @@ function openModal(dateKey, index) {
     document.getElementById("selectedDate").value = dateKey;
     document.getElementById("editIndex").value = index !== null ? index : "";
     const heading = document.getElementById("modalHeading");
-    const past = isPastDate(dateKey);
+
+    // Determine read-only: whole day is past, OR specific event on today has its time elapsed
+    let ev = (index !== null && events[dateKey]) ? events[dateKey][index] : null;
+    const eventStartTime = ev ? (ev.startTime || null) : null;
+    const past = isPastDate(dateKey) || isPastDateTime(dateKey, eventStartTime);
 
     if (index !== null && events[dateKey] && events[dateKey][index]) {
         heading.innerHTML = past
             ? '<i class="bi bi-eye me-2"></i>View Event'
             : '<i class="bi bi-pencil-square me-2"></i>Edit Event';
-        let ev = events[dateKey][index];
+        ev = events[dateKey][index];
         document.getElementById("eventTitle").value = ev.title || "";
         document.getElementById("eventDate").value = ev.date || dateKey;
         setStartTimePicker(ev.startTime || '');
@@ -1032,8 +1079,7 @@ function openModal(dateKey, index) {
         heading.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Add Event';
         document.getElementById("eventTitle").value = "";
         document.getElementById("eventDate").value = dateKey;
-        const now = new Date();
-        setStartTimePicker(snapToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`));
+        setStartTimePicker('');
         document.getElementById("eventDuration").value = "1 hr";
         document.getElementById("eventNotes").value = "";
         document.getElementById("eventColor").value = "#43a047";
@@ -1068,6 +1114,30 @@ document.getElementById("saveEventBtn").onclick = function () {
 
     if (!title) { alert("Please enter an event title."); return; }
     if (!dateVal) { alert("Please select a date."); return; }
+
+    // Block saving if the event date+time is more than 1 minute in the past
+    const startTime24 = getStartTime24h();
+    if (isPastDateTime(dateVal, startTime24)) {
+        alert("\u26a0\ufe0f Cannot save an event in the past.\nPlease choose a future date and time (at least 1 minute from now).");
+        return;
+    }
+
+    // Reminder fields are mandatory when the checkbox is checked
+    const reminderChecked = document.getElementById("eventReminder").checked;
+    if (reminderChecked) {
+        const reminderDateVal = document.getElementById("reminderDate").value;
+        const reminderTime24 = getReminderTime24h();
+        if (!reminderDateVal) {
+            alert("\u23f0 Reminder Date is required when \'Enable Reminder\' is checked.");
+            document.getElementById("reminderDate").focus();
+            return;
+        }
+        if (!reminderTime24) {
+            alert("\u23f0 Reminder Time is required when \'Enable Reminder\' is checked.");
+            document.getElementById("reminderHour").focus();
+            return;
+        }
+    }
 
     const ev = {
         title: title,
@@ -1141,8 +1211,8 @@ function scheduleReminder(title, datetime) {
 }
 
 /* ─── Navigation ─── */
-document.getElementById("prevBtn").onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCurrentView(); };
-document.getElementById("nextBtn").onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCurrentView(); };
+// Note: prevBtn / nextBtn onclick is set by renderCurrentView() each time the view renders,
+// so it always matches the active view (month = +1 month, week = +7 days).
 document.getElementById("toggleDark").onclick = () => {
     document.body.classList.toggle("dark-mode");
     renderCurrentView();
@@ -1184,24 +1254,54 @@ document.getElementById("addEventBtn").onclick = () => {
     openModal(targetKey, null);
 };
 
-/* ─── Category Highlight (blink events on calendar) ─── */
+/* ─── Category Highlight (blink events + navigate to first match) ─── */
 function highlightCategory(color) {
-    // Remove any existing blink first
+    // Remove any existing blink classes first
     document.querySelectorAll('.event.event-blink').forEach(el => el.classList.remove('event-blink'));
     document.querySelectorAll('.week-event-block.event-blink').forEach(el => el.classList.remove('event-blink'));
+    document.querySelectorAll('.calendar-day.holiday-blink').forEach(el => el.classList.remove('holiday-blink'));
 
     // Select all event divs matching this category color (month + week views)
     const monthTargets = document.querySelectorAll(`.event[data-color="${color}"]`);
     const weekTargets = document.querySelectorAll(`.week-event-block[data-color="${color}"]`);
     const allTargets = [...monthTargets, ...weekTargets];
-    if (!allTargets.length) return;
+
+    // ── Special: Holiday category (#1a73e8) → also blink weekend day cells ──
+    if (color === '#1a73e8') {
+        const weekendCells = document.querySelectorAll('.calendar-day.weekend:not(.past-day)');
+        weekendCells.forEach(cell => cell.classList.add('holiday-blink'));
+        setTimeout(() => {
+            document.querySelectorAll('.calendar-day.holiday-blink').forEach(el => el.classList.remove('holiday-blink'));
+        }, 2500);
+        if (allTargets.length === 0) return;
+    } else {
+        if (!allTargets.length) return;
+    }
 
     allTargets.forEach(el => el.classList.add('event-blink'));
+
+    // ── Scroll to the first matching event ──
+    const firstTarget = allTargets[0];
+    if (firstTarget) {
+        // Give the blink animation a moment to start, then scroll into view
+        setTimeout(() => {
+            firstTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }, 80);
+
+        // Wire up a one-time click on each blinking event → open its modal
+        allTargets.forEach(el => {
+            // Detect whether this is a month-view chip or a week-view block
+            const isWeek = el.classList.contains('week-event-block');
+            // Read dateKey and index from the onclick already set on the element
+            // We simply defer to the existing onclick; no change needed — just ensure
+            // the element has pointer-events (guaranteed via CSS .event-blink rule)
+        });
+    }
 
     // Also briefly highlight the matching calendar day cells (month view)
     monthTargets.forEach(el => {
         const cell = el.closest('.calendar-day');
-        if (cell) {
+        if (cell && !cell.classList.contains('holiday-blink')) {
             cell.classList.add('day-highlight');
             setTimeout(() => cell.classList.remove('day-highlight'), 2500);
         }
@@ -1294,6 +1394,9 @@ function renderCategoryBar() {
 /* ─── Weekly Report ─── */
 const weeklyReportModal = new bootstrap.Modal(document.getElementById("weeklyReportModal"));
 
+// Tracks which week offset (in weeks) from today is being shown in the report modal
+let reportWeekOffset = 0;
+
 function formatDisplayTime12(timeStr) {
     if (!timeStr) return '—';
     const [h, m] = timeStr.split(':').map(Number);
@@ -1315,8 +1418,18 @@ const categoryNameMap = {
     '#43a047': '📅 Event',
 };
 
-function renderWeeklyReport() {
-    const weekStart = getWeekStart(new Date());
+function renderWeeklyReport(weekOffsetOverride) {
+    // If called fresh (from the button), reset offset to 0 (current week)
+    if (weekOffsetOverride === undefined) {
+        reportWeekOffset = 0;
+    } else {
+        reportWeekOffset = weekOffsetOverride;
+    }
+
+    // Build the week starting from today's week + offset
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + reportWeekOffset * 7);
+    const weekStart = getWeekStart(baseDate);
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
         const d = new Date(weekStart);
@@ -1327,6 +1440,23 @@ function renderWeeklyReport() {
     const weekEnd = weekDays[6];
     const rangeStr = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     document.getElementById('weeklyReportRange').textContent = rangeStr;
+
+    // Wire up the Prev / Next week navigation buttons inside the modal header
+    const prevWeekBtn = document.getElementById('reportPrevWeekBtn');
+    const nextWeekBtn = document.getElementById('reportNextWeekBtn');
+    if (prevWeekBtn) {
+        prevWeekBtn.onclick = () => renderWeeklyReport(reportWeekOffset - 1);
+    }
+    if (nextWeekBtn) {
+        nextWeekBtn.onclick = () => renderWeeklyReport(reportWeekOffset + 1);
+        // Disable forward navigation for future weeks beyond +4 weeks
+        nextWeekBtn.disabled = reportWeekOffset >= 4;
+    }
+    // Show "This Week" label when on offset 0
+    const thisWeekBadge = document.getElementById('reportThisWeekBadge');
+    if (thisWeekBadge) {
+        thisWeekBadge.style.display = reportWeekOffset === 0 ? 'inline-flex' : 'none';
+    }
 
     let totalEvents = 0;
     const body = document.getElementById('weeklyReportBody');
@@ -1449,7 +1579,7 @@ function renderWeeklyReport() {
     weeklyReportModal.show();
 }
 
-document.getElementById('weeklyReportBtn').onclick = renderWeeklyReport;
+document.getElementById('weeklyReportBtn').onclick = () => renderWeeklyReport();
 
 /* ─── Init ─── */
 // Load from localStorage immediately so the calendar isn't blank while Firestore connects

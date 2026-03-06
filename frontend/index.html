@@ -200,15 +200,15 @@
                         </div>
                         <div id="reminderFields" class="row g-2" style="display:none!important;">
                             <div class="col-md-6">
-                                <label class="form-label small">Reminder Date</label>
+                                <label class="form-label small">Reminder Date <span class="text-danger">*</span></label>
                                 <input type="date" id="reminderDate" class="form-control form-control-sm">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">Reminder Time</label>
+                                <label class="form-label small">Reminder Time <span class="text-danger">*</span></label>
                                 <div class="time-picker-group time-picker-sm" id="reminderTimePicker">
                                     <select id="reminderHour" class="form-select form-select-sm time-picker-select"
                                         title="Hour">
-                                        <option value="">--</option>
+
                                         <option value="12">12</option>
                                         <option value="1">1</option>
                                         <option value="2">2</option>
@@ -272,7 +272,22 @@
                             <small id="weeklyReportRange" class="opacity-75"></small>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <!-- Week navigation (self-contained — does NOT affect main calendar) -->
+                        <span id="reportThisWeekBadge"
+                            class="badge bg-success px-2 py-1 d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-calendar-check me-1"></i>This Week
+                        </span>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-sm btn-outline-light wr-nav-btn" id="reportPrevWeekBtn"
+                                title="Previous Week">
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </button>
+                            <button class="btn btn-sm btn-outline-light wr-nav-btn" id="reportNextWeekBtn"
+                                title="Next Week">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
                         <span id="weeklyReportTotalBadge" class="badge bg-light text-dark fs-6 px-3 py-2"></span>
                         <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
