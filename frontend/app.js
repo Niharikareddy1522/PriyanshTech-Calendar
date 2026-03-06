@@ -707,8 +707,6 @@ function renderWeekView() {
             if (!isPastSlot) {
                 hourCell.onclick = () => {
                     openModal(dateKey, null);
-                    // Set time AFTER openModal so it doesn't get cleared
-                    setStartTimePicker(snapToSlot(`${String(h).padStart(2, '0')}:00`));
                 };
             }
             col.appendChild(hourCell);
@@ -1184,8 +1182,11 @@ document.getElementById("saveEventBtn").onclick = function () {
     const idx = document.getElementById("editIndex").value;
     if (idx === "") {
         events[dateVal].push(ev);
-        // Stay on month view so the user can SEE the newly added event chip on the calendar
-        currentDate = new Date(dateVal + "T00:00:00");
+        // Only update currentDate for month view
+        // Week view should not jump when creating events on other dates
+        if (currentView === "month") {
+            currentDate = new Date(dateVal + "T00:00:00");
+        }
     } else {
         const oldDate = document.getElementById("selectedDate").value;
         if (oldDate !== dateVal) {
@@ -1261,6 +1262,8 @@ document.getElementById("weekViewBtn").onclick = () => {
     currentView = "week";
     document.getElementById("weekViewBtn").classList.add("active");
     document.getElementById("monthViewBtn").classList.remove("active");
+    // Reset to current week when switching to week view
+    currentDate = new Date();
     renderCurrentView();
 };
 
