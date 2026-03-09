@@ -1226,6 +1226,35 @@ document.getElementById("deleteEventBtn").onclick = function () {
     }
 };
 
+/* ─── Remove All Past Events from Storage ─── */
+function clearAllPastEventsFromStorage() {
+    let removedCount = 0;
+    const datesToDelete = [];
+    
+    for (const dateKey in events) {
+        events[dateKey] = events[dateKey].filter(ev => {
+            const isPast = isPastDate(dateKey) || isPastDateTime(dateKey, ev.startTime || null);
+            if (isPast) removedCount++;
+            return !isPast;
+        });
+        
+        if (events[dateKey].length === 0) {
+            datesToDelete.push(dateKey);
+        }
+    }
+    
+    datesToDelete.forEach(dateKey => delete events[dateKey]);
+    
+    if (removedCount > 0) {
+        saveStorage();
+        console.log(`✅ Removed ${removedCount} past event${removedCount !== 1 ? 's' : ''} from storage`);
+    } else {
+        console.log('ℹ️ No past events to remove');
+    }
+    
+    return removedCount;
+}
+
 /* ─── Reminder Notification ─── */
 function scheduleReminder(title, datetime) {
     if (Notification.permission !== "granted") {
